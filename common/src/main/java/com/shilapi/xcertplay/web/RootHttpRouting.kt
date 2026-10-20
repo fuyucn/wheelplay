@@ -32,6 +32,9 @@ internal data class RootHttpPlan(
     val httpsPort: Int? = null,
     val httpMappingPort: Int? = null,
     val httpsMappingPort: Int? = null,
+    val dnsPort: Int? = null,
+    /** Hotspot gateway whose port 80 serves the same web listener for offline checks. */
+    val portalAddress: String? = null,
 ) {
     init {
         require(TeslaHttpConfig.isHttpAddress(address) && port in 1024..65535)
@@ -42,6 +45,8 @@ internal data class RootHttpPlan(
         require(httpMappingPort == null || httpMappingPort in 1..1023)
         require(httpsMappingPort == null || httpsMappingPort in 1..1023 && httpsPort != null)
         require(httpMappingPort == null || httpMappingPort != httpsMappingPort)
+        require(dnsPort == null || dnsPort in 1024..65535 && dnsPort != port && dnsPort != httpsPort)
+        require(portalAddress == null || TeslaHttpConfig.isHttpAddress(portalAddress))
     }
 
     data class Command(val apply: String, val revert: String)
@@ -62,8 +67,31 @@ internal data class RootHttpPlan(
                 filter(
                     "INPUT -i ${downstream.name} -d $address/32 -p tcp --dport $listenerPort -j ACCEPT"
                 )
+                // Conntrack restores the public port on replies, so do not match the listener port.
                 filter(
-                    "OUTPUT -o ${downstream.name} -s $address/32 -d ${downstream.subnet} -p tcp --sport $listenerPort -m conntrack --ctstate ESTABLISHED -j ACCEPT"
+                    "OUTPUT -o ${downstream.name} -s $address/32 -d ${downstream.subnet} -p tcp -m conntrack --ctstate ESTABLISHED -j ACCEPT"
+                )
+            }
+            if (portalAddress != null && portalAddress != address) {
+                // On-subnet port 80 needs no custom IP, so clients always have a route to it.
+                val rule =
+                    "PREROUTING -i ${downstream.name} -d $portalAddress/32 -p tcp --dport 80 " +
+                        "-m comment --comment wheelplay-portal -j DNAT --to-destination :$port"
+                add(Command("iptables -w 2 -t nat -I $rule", "iptables -w 2 -t nat -D $rule"))
+                filter("INPUT -i ${downstream.name} -d $portalAddress/32 -p tcp --dport $port -j ACCEPT")
+                filter(
+                    "OUTPUT -o ${downstream.name} -s $portalAddress/32 -d ${downstream.subnet} -p tcp -m conntrack --ctstate ESTABLISHED -j ACCEPT"
+                )
+            }
+            if (dnsPort != null) {
+                // Offline connectivity checks: any hotspot DNS query goes to the local responder.
+                val rule =
+                    "PREROUTING -i ${downstream.name} -p udp --dport 53 " +
+                        "-m comment --comment wheelplay-dns -j DNAT --to-destination $address:$dnsPort"
+                add(Command("iptables -w 2 -t nat -I $rule", "iptables -w 2 -t nat -D $rule"))
+                filter("INPUT -i ${downstream.name} -d $address/32 -p udp --dport $dnsPort -j ACCEPT")
+                filter(
+                    "OUTPUT -o ${downstream.name} -s $address/32 -d ${downstream.subnet} -p udp --sport $dnsPort -j ACCEPT"
                 )
             }
         }

@@ -141,6 +141,8 @@
     <string name="settings_request_root">請求 Root 權限</string>
     <string name="settings_enable_root">啟用 Tesla 相容</string>
     <string name="settings_enable_root_description">將 HTTP / HTTPS 低位埠及自定義 IP 共享給熱點裝置。</string>
+    <string name="settings_tesla_offline">代答 Tesla 連網檢查（無 SIM 卡）</string>
+    <string name="settings_tesla_offline_description">手機沒有行動數據時使用：在本地回答車機的連網檢查，讓車機保持連線熱點。車機內建音樂、地圖等仍不能連網。手機有網路時請關閉。</string>
     <string name="settings_http_mapping">對映 HTTP 埠</string>
     <string name="settings_https_mapping">對映 HTTPS 埠</string>
     <string name="settings_https_disabled">HTTPS 已關閉</string>

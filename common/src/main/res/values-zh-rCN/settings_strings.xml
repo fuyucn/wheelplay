@@ -141,6 +141,8 @@
     <string name="settings_request_root">请求 Root 权限</string>
     <string name="settings_enable_root">启用 Tesla 兼容</string>
     <string name="settings_enable_root_description">将 HTTP / HTTPS 低位端口及自定义 IP 共享给热点设备。</string>
+    <string name="settings_tesla_offline">代答 Tesla 联网检查（无 SIM 卡）</string>
+    <string name="settings_tesla_offline_description">手机没有流量时使用：在本地回答车机的联网检查，让车机保持连接热点。车机自带音乐、地图等仍不能联网。手机有网时请关闭。</string>
     <string name="settings_http_mapping">映射 HTTP 端口</string>
     <string name="settings_https_mapping">映射 HTTPS 端口</string>
     <string name="settings_https_disabled">HTTPS 已关闭</string>

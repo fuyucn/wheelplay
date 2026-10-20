@@ -57,6 +57,14 @@ internal fun TeslaSettingsScreen(state: SettingsState, actions: SettingsActions)
                 enabled,
             )
             Text(state.runtime.teslaStatus, style = MaterialTheme.typography.bodyMedium)
+            SettingsToggle(
+                state,
+                actions,
+                ToggleSetting.TESLA_OFFLINE,
+                R.string.settings_tesla_offline,
+                R.string.settings_tesla_offline_description,
+                enabled,
+            )
             SettingsTextPreference(
                 actions,
                 TextSetting.HTTP_MAPPING,

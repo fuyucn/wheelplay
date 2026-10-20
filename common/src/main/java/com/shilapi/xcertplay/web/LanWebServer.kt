@@ -87,6 +87,29 @@ internal class LanWebServer(
     }
 
     override fun serve(session: IHTTPSession): Response {
+        // Tesla's link probe is `HEAD /` against the hotspot gateway; a 405 reads as offline.
+        if (session.method == Method.HEAD && TeslaOfflineChecks.active) {
+            TeslaOfflineChecks.log(
+                "http ${session.remoteIpAddress} HEAD ${session.headers["host"]}${session.uri} -> 200"
+            )
+            return newFixedLengthResponse(Response.Status.OK, NanoHTTPD.MIME_PLAINTEXT, "")
+                .apply {
+                    // ConnMan decides from this header, not from the status code alone.
+                    addHeader("X-ConnMan-Status", "online")
+                    addHeader("X-Cache", "Hit from cloudfront")
+                    addHeader("Cache-Control", "no-store")
+                }
+        }
+        // Connectivity checks arrive by Host name only when offline checks resolve them here.
+        TeslaOfflineChecks.httpReply(session.headers["host"], session.uri, session.remoteIpAddress)
+            ?.let { reply ->
+                val status =
+                    Response.Status.lookup(reply.status) ?: Response.Status.OK
+                return newFixedLengthResponse(status, "text/html", reply.body).apply {
+                    reply.headers.forEach { (name, value) -> addHeader(name, value) }
+                    addHeader("Cache-Control", "no-store")
+                }
+            }
         if (session.uri == "/stream" && isWebsocketRequested(session)) {
             val origin = session.headers["origin"]
             val sameOrigin =

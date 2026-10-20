@@ -115,6 +115,7 @@ internal class SettingsViewModel(
                     ToggleSetting.NAVIGATION to BydOutputSettings.enabled(app),
                     ToggleSetting.HTTPS to WebListenSettings.httpsEnabled(app),
                     ToggleSetting.TESLA to TeslaHttpCompatibility.config(app).enabled,
+                    ToggleSetting.TESLA_OFFLINE to TeslaHttpCompatibility.config(app).offlineChecks,
                 ),
             phoneName =
                 if (DiPlayPreferences.phoneAddress(app) == null)
@@ -270,6 +271,13 @@ internal class SettingsViewModel(
                         WebSession.setHttpsEnabled(app, checked)
                     }
                 ToggleSetting.TESLA -> SettingsEffect.TeslaEnabled(checked)
+                ToggleSetting.TESLA_OFFLINE -> {
+                    TeslaHttpCompatibility.save(
+                        app,
+                        TeslaHttpCompatibility.config(app).copy(offlineChecks = checked),
+                    )
+                    SettingsEffect.None
+                }
             }
         reload()
         return effect

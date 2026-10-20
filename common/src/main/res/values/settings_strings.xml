@@ -141,6 +141,8 @@
     <string name="settings_request_root">Request root access</string>
     <string name="settings_enable_root">Enable Tesla compatibility</string>
     <string name="settings_enable_root_description">Share HTTP / HTTPS low ports and a custom IP with hotspot clients.</string>
+    <string name="settings_tesla_offline">Answer Tesla connectivity checks (no SIM)</string>
+    <string name="settings_tesla_offline_description">For a phone without mobile data: answers the car\'s internet checks locally so it keeps the hotspot. Car apps such as music and maps stay offline. Leave off when the phone has internet.</string>
     <string name="settings_http_mapping">Forwarded HTTP port</string>
     <string name="settings_https_mapping">Forwarded HTTPS port</string>
     <string name="settings_https_disabled">HTTPS disabled</string>

@@ -16,6 +16,8 @@ data class TeslaHttpConfig(
     val httpsMappingPort: Int = 443,
     val mode: TeslaHttpMode = TeslaHttpMode.ROOT,
     val vpnAddress: String = DEFAULT_VPN_ADDRESS,
+    /** Root mode only: answer Tesla's connectivity checks when the hotspot has no upstream. */
+    val offlineChecks: Boolean = false,
 ) {
     init {
         requireUi(isHttpAddress(address)) {

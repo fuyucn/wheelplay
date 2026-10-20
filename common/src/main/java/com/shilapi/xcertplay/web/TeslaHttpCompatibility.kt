@@ -73,6 +73,7 @@ internal object TeslaHttpCompatibility {
                     prefs.getInt("https_mapping_port", 443),
                     TeslaHttpMode.valueOf(prefs.getString("mode", TeslaHttpMode.ROOT.name)!!),
                     prefs.getString("vpn_address", TeslaHttpConfig.DEFAULT_VPN_ADDRESS)!!,
+                    prefs.getBoolean("offline_checks", false),
                 )
             }
             .getOrDefault(TeslaHttpConfig())
@@ -88,6 +89,7 @@ internal object TeslaHttpCompatibility {
             .putInt("https_mapping_port", config.httpsMappingPort)
             .putString("mode", config.mode.name)
             .putString("vpn_address", config.vpnAddress)
+            .putBoolean("offline_checks", config.offlineChecks)
             .apply()
         refresh(retry = true)
         if (previous.accessAddress != config.accessAddress)
@@ -120,6 +122,7 @@ internal object TeslaHttpCompatibility {
             tethered = emptySet()
             status = TeslaHttpStatus()
             vpn.stop()
+            TeslaOfflineChecks.stop()
             refresh()
         }
     }
@@ -132,6 +135,7 @@ internal object TeslaHttpCompatibility {
         httpPort: Int?,
         httpsPort: Int?,
         authorized: Boolean,
+        portalAddress: String? = null,
     ): RootHttpPlan? =
         if (
             !authorized ||
@@ -149,6 +153,8 @@ internal object TeslaHttpCompatibility {
                 httpsPort,
                 config.httpMappingPort,
                 config.httpsMappingPort.takeIf { httpsPort != null },
+                TeslaOfflineChecks.DNS_PORT.takeIf { config.offlineChecks },
+                portalAddress.takeIf { config.offlineChecks },
             )
 
     private fun refresh(retry: Boolean = false) {
@@ -181,6 +187,7 @@ internal object TeslaHttpCompatibility {
         val config = context?.let(::config)
         try {
             if (config?.enabled == true && config.mode == TeslaHttpMode.VPN) {
+                TeslaOfflineChecks.stop()
                 // Do not create a competing alias until the former Root transaction is cleaned up.
                 val cleanup = routing.reconcile(null)
                 main.post {
@@ -224,7 +231,9 @@ internal object TeslaHttpCompatibility {
                             iface.interfaceAddresses.firstOrNull {
                                 it.address is Inet4Address && it.networkPrefixLength in 1..30
                             } ?: return@mapNotNull null
-                        require(address.address.hostAddress != config.address) {
+                        require(
+                            !config.offlineChecks || address.address.hostAddress != config.address
+                        ) {
                             (context?.getString(
                                 UiR.string
                                     .ui_the_shared_ip_matches_the_hotspot_gateway_choose_another
@@ -237,6 +246,13 @@ internal object TeslaHttpCompatibility {
                         )
                     }
                 else emptyList()
+            // Offline checks use the on-subnet hotspot gateway, which needs no custom IP.
+            val portal =
+                config
+                    ?.takeIf { it.offlineChecks }
+                    ?.let {
+                        downstreams.firstOrNull()?.subnet?.substringBefore('/')
+                    }
             val plan =
                 config?.let {
                     plan(
@@ -245,9 +261,14 @@ internal object TeslaHttpCompatibility {
                         WebSession.httpListenerPort,
                         WebSession.httpsListenerPort,
                         RootAccess.granted,
+                        portal,
                     )
                 }
             val result = routing.reconcile(plan)
+            // The responder binds to the alias, so it can only start once the rules are installed.
+            if (plan?.dnsPort != null && result.error == null && context != null && portal != null)
+                TeslaOfflineChecks.ensure(context, plan.address, portal)
+            else TeslaOfflineChecks.stop()
             // Root consent can take time. Never publish completion for a stopped/reconfigured
             // owner.
             if (
@@ -275,6 +296,7 @@ internal object TeslaHttpCompatibility {
             } else routing.reconcile(null)
         } catch (error: Exception) {
             routing.reconcile(null)
+            TeslaOfflineChecks.stop()
             if (revision.get() == version && owner === context)
                 status =
                     TeslaHttpStatus(

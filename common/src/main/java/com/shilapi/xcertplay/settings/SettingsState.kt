@@ -49,6 +49,7 @@ internal enum class ToggleSetting {
     NAVIGATION,
     HTTPS,
     TESLA,
+    TESLA_OFFLINE,
 }
 
 internal enum class TextSetting {
